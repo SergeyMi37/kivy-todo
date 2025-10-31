@@ -4,7 +4,7 @@ from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
-from kivy.uix.checkbox import CheckBox
+from kivymd.uix.selectioncontrol import MDCheckbox
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.popup import Popup
@@ -19,6 +19,7 @@ from kivymd.uix.list import MDList, OneLineListItem, TwoLineListItem, ThreeLineL
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.toolbar import MDTopAppBar
 from kivymd.uix.bottomnavigation import MDBottomNavigation, MDBottomNavigationItem
+from kivymd.uix.pickers import MDDatePicker
 # from kivymd.uix.snackbar import MDSnackbar
 from kivymd.theming import ThemeManager
 from kivy.clock import Clock
@@ -98,6 +99,10 @@ class LoginScreen(Screen):
         username = self.username_input.text
         password = self.password_input.text
 
+        if not username or not password:
+            self.show_error('Заполните все поля')
+            return
+
         try:
             user = User.get(User.username == username)
             if user.check_password(password):
@@ -106,9 +111,34 @@ class LoginScreen(Screen):
                 self.manager.current = 'dashboard'
                 print('Вход выполнен успешно')
             else:
-                Snackbar(text='Неверный пароль').show()
+                self.show_error('Неверный пароль')
         except User.DoesNotExist:
-            print('Пользователь не найден')
+            self.show_error('Пользователь не найден')
+
+    def show_error(self, message):
+        from kivymd.uix.label import MDLabel
+        from kivymd.uix.card import MDCard
+        from kivy.uix.boxlayout import BoxLayout
+        from kivy.uix.popup import Popup
+
+        # Создаем кастомное диалоговое окно
+        content = BoxLayout(orientation='vertical', padding=20, spacing=10)
+        label = MDLabel(
+            text=message,
+            halign='center',
+            theme_text_color="Custom",
+            text_color=[1, 1, 1, 1],  # Белый текст
+            font_style="Body1"
+        )
+        content.add_widget(label)
+
+        popup = Popup(
+            title='Ошибка',
+            content=content,
+            size_hint=(0.8, 0.4),
+            auto_dismiss=True
+        )
+        popup.open()
 
     def go_to_register(self, instance):
         self.manager.current = 'register'
@@ -163,19 +193,24 @@ class RegisterScreen(Screen):
         email = self.email_input.text
         password = self.password_input.text
 
-        if not username or not email or not password:
-            print('Заполните все поля')
+        if not username or not password:
+            self.show_error('Заполните обязательные поля')
             return
 
         try:
             user_role = Role.get(Role.name == 'user')
-            user = User(username=username, email=email, role=user_role)
+            user = User(username=username, email=email if email else None, role=user_role)
             user.set_password(password)
             user.save()
             print('Регистрация успешна')
             self.manager.current = 'login'
         except Exception as e:
-            print(f'Ошибка регистрации: {e}')
+            if 'username' in str(e):
+                self.show_error('Пользователь с таким именем уже существует')
+            elif 'email' in str(e):
+                self.show_error('Пользователь с таким email уже существует')
+            else:
+                self.show_error(f'Ошибка регистрации: {e}')
 
     def go_back(self, instance):
         self.manager.current = 'login'
@@ -185,23 +220,25 @@ class TodoItem(MDCard):
         super().__init__(**kwargs)
         self.todo = todo
         self.size_hint_y = None
-        self.height = dp(80)
+        self.height = dp(100)
         self.padding = dp(10)
         self.elevation = 2
 
         layout = BoxLayout(orientation='horizontal')
 
         # Чекбокс для завершения
-        self.checkbox = CheckBox(active=todo.completed)
+        self.checkbox = MDCheckbox(active=todo.completed)
         self.checkbox.bind(active=self.toggle_completed)
 
         # Текст задачи
         text_layout = BoxLayout(orientation='vertical')
         self.title_label = MDLabel(text=todo.title, font_style='Body1')
         self.desc_label = MDLabel(text=todo.description or '', font_style='Body2', theme_text_color='Secondary')
+        self.date_label = MDLabel(text=self.get_date_text(), font_style='Caption', theme_text_color='Hint')
 
         text_layout.add_widget(self.title_label)
         text_layout.add_widget(self.desc_label)
+        text_layout.add_widget(self.date_label)
 
         # Кнопки действий
         actions_layout = BoxLayout(orientation='vertical', size_hint_x=None, width=dp(80))
@@ -221,11 +258,12 @@ class TodoItem(MDCard):
 
     def toggle_completed(self, instance, value):
         self.todo.completed = value
-        if value and not self.todo.due_date:
-            self.todo.due_date = datetime.utcnow()
+        if value and not self.todo.completed_at:
+            self.todo.completed_at = datetime.utcnow()
         elif not value:
-            self.todo.due_date = None
+            self.todo.completed_at = None
         self.todo.save()
+        self.date_label.text = self.get_date_text()
 
     def edit_todo(self, instance):
         app = MDApp.get_running_app()
@@ -235,6 +273,11 @@ class TodoItem(MDCard):
         self.todo.delete_instance()
         app = MDApp.get_running_app()
         app.refresh_todos()
+
+    def get_date_text(self):
+        if self.todo.completed_at:
+            return f"Завершено: {self.todo.completed_at.strftime('%d.%m.%Y %H:%M')}"
+        return ""
 
 class DashboardScreen(Screen):
     def __init__(self, **kwargs):
@@ -294,6 +337,21 @@ class TodoFormScreen(Screen):
             height=dp(100)
         )
 
+        # Чекбокс завершения
+        self.completed_checkbox = MDCheckbox()
+        completed_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(48))
+        completed_layout.add_widget(MDLabel(text='Завершено', size_hint_x=None, width=dp(100)))
+        completed_layout.add_widget(self.completed_checkbox)
+
+        # Кнопка выбора даты
+        self.date_button = MDRaisedButton(
+            text='Выбрать дату завершения',
+            size_hint_y=None,
+            height=dp(48)
+        )
+        self.date_button.bind(on_press=self.show_date_picker)
+        self.selected_date = None
+
         save_btn = MDRaisedButton(
             text='Сохранить',
             size_hint_y=None,
@@ -311,6 +369,8 @@ class TodoFormScreen(Screen):
         self.layout.add_widget(MDLabel(text='Новая задача', halign='center', font_style='H5'))
         self.layout.add_widget(self.title_input)
         self.layout.add_widget(self.desc_input)
+        self.layout.add_widget(completed_layout)
+        self.layout.add_widget(self.date_button)
         self.layout.add_widget(save_btn)
         self.layout.add_widget(cancel_btn)
 
@@ -321,13 +381,23 @@ class TodoFormScreen(Screen):
         if todo:
             self.title_input.text = todo.title
             self.desc_input.text = todo.description or ''
+            self.completed_checkbox.active = todo.completed
+            self.selected_date = todo.completed_at
+            if todo.completed_at:
+                self.date_button.text = f"Дата: {todo.completed_at.strftime('%d.%m.%Y %H:%M')}"
+            else:
+                self.date_button.text = 'Выбрать дату завершения'
         else:
             self.title_input.text = ''
             self.desc_input.text = ''
+            self.completed_checkbox.active = False
+            self.selected_date = None
+            self.date_button.text = 'Выбрать дату завершения'
 
     def save_todo(self, instance):
         title = self.title_input.text
         description = self.desc_input.text
+        completed = self.completed_checkbox.active
 
         if not title:
             print('Введите название задачи')
@@ -336,9 +406,17 @@ class TodoFormScreen(Screen):
         if self.todo:
             self.todo.title = title
             self.todo.description = description
+            self.todo.completed = completed
+            if completed and self.selected_date:
+                self.todo.completed_at = self.selected_date
+            elif not completed:
+                self.todo.completed_at = None
             self.todo.save()
         else:
-            Todo.create(title=title, description=description)
+            todo = Todo.create(title=title, description=description, completed=completed)
+            if completed and self.selected_date:
+                todo.completed_at = self.selected_date
+                todo.save()
 
         self.manager.current = 'dashboard'
         app = MDApp.get_running_app()
@@ -346,6 +424,18 @@ class TodoFormScreen(Screen):
 
     def cancel(self, instance):
         self.manager.current = 'dashboard'
+
+    def show_date_picker(self, instance):
+        date_dialog = MDDatePicker()
+        date_dialog.bind(on_save=self.on_date_save, on_cancel=self.on_date_cancel)
+        date_dialog.open()
+
+    def on_date_save(self, instance, value, date_range):
+        self.selected_date = datetime.combine(value, datetime.min.time())
+        self.date_button.text = f"Дата: {self.selected_date.strftime('%d.%m.%Y %H:%M')}"
+
+    def on_date_cancel(self, instance, value):
+        pass
 
 class TodoApp(MDApp):
     current_user = ObjectProperty(None, allownone=True)

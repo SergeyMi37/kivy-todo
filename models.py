@@ -21,7 +21,7 @@ class Role(BaseModel):
 class User(BaseModel):
     id = AutoField()
     username = CharField(unique=True, max_length=64)
-    email = CharField(unique=True, max_length=120)
+    email = CharField(unique=True, max_length=120, null=True)
     password_hash = CharField(max_length=128)
     role = ForeignKeyField(Role, backref='users')
     created_at = DateTimeField(default=datetime.utcnow)
@@ -42,7 +42,7 @@ class Todo(BaseModel):
     completed = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.utcnow)
     updated_at = DateTimeField(default=datetime.utcnow)
-    due_date = DateTimeField(null=True)
+    completed_at = DateTimeField(null=True)
 
     def __str__(self):
         return self.title

@@ -29,12 +29,24 @@
    cd kivy-todo
    ```
 
-2. **Установите зависимости:**
+2. **Создайте виртуальное окружение:**
    ```bash
-   pip install kivy kivymd peewee bcrypt
+   # Linux/Mac
+   python3 -m venv env
+   source env/bin/activate
+
+   # Windows
+   python -m venv env
+   source env/Scripts/activate
    ```
 
-3. **Запустите приложение:**
+3. **Установите зависимости:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+
+4. **Запустите приложение:**
    ```bash
    python main.py
    ```
