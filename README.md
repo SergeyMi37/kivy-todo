@@ -25,7 +25,7 @@
 
 1. **Клонируйте репозиторий:**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/SergeyMi37/kivy-todo
    cd kivy-todo
    ```
 
@@ -278,3 +278,4 @@ python main.py
 - [KivyMD](https://kivymd.readthedocs.io/) - Material Design компоненты для Kivy
 - [Peewee](https://peewee.readthedocs.io/) - Простая и легкая ORM для Python
 - [Buildozer](https://buildozer.readthedocs.io/) - Инструмент для сборки APK из Python приложений
+- [gugadev](https://gist.github.com/gugadev/1a4e18b6f2fcd82332e3bac59c10738c) - Как установить Андроид SDK без Andfoid Studio
